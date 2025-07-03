@@ -7,22 +7,26 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Application.UseCase.Users.Commands;
 
-public sealed record LoginUserCommand(LoginRequestDto Request) : IRequest<string?>
+// Ahora retornará LoginResponseDto en vez de string
+public sealed record LoginUserCommand(LoginRequestDto Request) : IRequest<LoginResponseDto>
 {
-    internal sealed class Handler : IRequestHandler<LoginUserCommand, string?>
+    internal sealed class Handler : IRequestHandler<LoginUserCommand, LoginResponseDto>
     {
         private readonly IUserRepository<User> _userRepository;
         private readonly IUnitOfWork _unitOfWork;
         private readonly IAuthService _authService;
 
-        public Handler(IUserRepository<User> userRepository, IUnitOfWork unitOfWork, IAuthService authService)
+        public Handler(
+            IUserRepository<User> userRepository,
+            IUnitOfWork unitOfWork,
+            IAuthService authService)
         {
-            _userRepository= userRepository;
+            _userRepository = userRepository;
             _unitOfWork = unitOfWork;
             _authService = authService;
         }
 
-        public async Task<string?> Handle(LoginUserCommand command, CancellationToken cancellationToken)
+        public async Task<LoginResponseDto> Handle(LoginUserCommand command, CancellationToken cancellationToken)
         {
             var request = command.Request;
 
@@ -34,9 +38,11 @@ public sealed record LoginUserCommand(LoginRequestDto Request) : IRequest<string
 
             var userDomain = UserMapper.ToDomain(userEf);
 
+            // Bloqueo temporal
             if (userDomain.LockoutUntil.HasValue && userDomain.LockoutUntil > DateTime.UtcNow)
                 throw new Exception($"Cuenta bloqueada hasta {userDomain.LockoutUntil.Value.ToLocalTime()}");
 
+            // Verificación de contraseña
             if (!_authService.VerifyPassword(request.Password, userDomain.PasswordHash))
             {
                 userDomain.IncrementFailedLogin();
@@ -55,6 +61,7 @@ public sealed record LoginUserCommand(LoginRequestDto Request) : IRequest<string
                 throw new Exception("Contraseña incorrecta");
             }
 
+            // Restablecer intentos fallidos
             userDomain.ResetLoginAttempts();
             var userToUpdate = await _unitOfWork.Repository<User>().GetByIdAsync(userDomain.Id);
             userToUpdate.FailedLoginAttempts = 0;
@@ -62,11 +69,20 @@ public sealed record LoginUserCommand(LoginRequestDto Request) : IRequest<string
 
             await _unitOfWork.SaveChange();
 
-            return _authService.GenerateToken(
+            // Generar token
+            var token = _authService.GenerateToken(
                 userDomain.Id,
                 userDomain.Email,
                 userEf.UserType.Name
             );
+
+            // Devolver DTO con toda la info que necesitas
+            return new LoginResponseDto
+            {
+                Token = token,
+                UserTypeId = userEf.UserType.UserTypeId,
+                UserType = userEf.UserType.Name
+            };
         }
     }
 }

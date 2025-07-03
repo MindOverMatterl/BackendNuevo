@@ -8,21 +8,18 @@ using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.IdentityModel.Tokens;
- 
+
 namespace Proyecto.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
 public class AuthController : ControllerBase
 {
-   
     private readonly IMediator _mediator;
 
-   
     public AuthController(IMediator mediator)
     {
         _mediator = mediator;
-   
     }
 
     [HttpPost("login")]
@@ -30,8 +27,11 @@ public class AuthController : ControllerBase
     {
         try
         {
-            var token =  await _mediator.Send(new LoginUserCommand(dto), cancellationToken);
-            return Ok(new { token });
+            // Ahora esperas un LoginResponseDto (no un string)
+            var response = await _mediator.Send(new LoginUserCommand(dto), cancellationToken);
+
+            // Devuelves directamente ese objeto (token, userTypeId, userType)
+            return Ok(response);
         }
         catch (Exception ex)
         {
@@ -40,7 +40,7 @@ public class AuthController : ControllerBase
     }
 
     [HttpPost("register")]
-    public async Task<IActionResult> Register(RegisterRequestDto dto , CancellationToken cancellationToken)
+    public async Task<IActionResult> Register(RegisterRequestDto dto, CancellationToken cancellationToken)
     {
         try
         {
