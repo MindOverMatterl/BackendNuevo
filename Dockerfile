@@ -2,13 +2,17 @@
 FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
 WORKDIR /app
 
-# Copiar y restaurar dependencias
-COPY Proyecto.sln .
-COPY Proyecto/*.csproj ./Proyecto/
-RUN dotnet restore
+# Copiar todos los archivos de la solución
+COPY Proyecto.sln ./
+COPY Proyecto/ Proyecto/
+COPY Application/ Application/
+COPY Domain/ Domain/
+COPY Infraestructure/ Infraestructure/
 
-# Copiar el resto del código
-COPY . .
+# Restaurar dependencias
+RUN dotnet restore Proyecto.sln
+
+# Publicar el proyecto principal
 WORKDIR /app/Proyecto
 RUN dotnet publish -c Release -o /out
 
