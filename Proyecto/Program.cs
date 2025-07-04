@@ -5,6 +5,21 @@ var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
 builder.Services.AddControllersWithViews();
+
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowFrontend", policy =>
+    {
+        policy.WithOrigins(
+                "http://localhost:8081",                           // Expo Web en PC
+                "http://localhost:19006",                          // Expo Web por defecto
+                "https://frontend-production.vercel.app",          // (si publicas tu frontend luego)
+                "https://backendnuevo-production.up.railway.app"   // Por si usas WebView o testing interno
+            )
+            .AllowAnyHeader()
+            .AllowAnyMethod();
+    });
+});
 builder.Services.AddApplicationServices(builder.Configuration);
 
 
@@ -31,6 +46,8 @@ app.UseHttpsRedirection();
 app.UseStaticFiles();
 
 app.UseRouting();
+// ✅ Aplicar la política de CORS
+app.UseCors("AllowFrontend");
 
 app.UseAuthorization();
 
